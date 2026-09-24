@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  config-server:
+    build: ./config-server
+    ports:
+      - "8888:8888"
+
+  auth-service:
+    build: ./auth-service
+    depends_on:
+      - config-server
+
+  catalog-service:
+    build: ./catalog-service
+    depends_on:
+      - config-server
+
+  cart-service:
+    build: ./cart-service
+    depends_on:
+      - config-server
+
+  payment-service:
+    build: ./payment-service
+    depends_on:
+      - config-server
+
+  notification-service:
+    build: ./notification-service
+    depends_on:
+      - config-server
