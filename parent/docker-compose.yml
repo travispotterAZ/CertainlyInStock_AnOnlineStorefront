@@ -1,0 +1,108 @@
+x-service-environment: &service-environment
+  SERVER_PORT: "8080"
+  SPRING_PROFILES_ACTIVE: database
+  SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATASOURCE_PASSWORD: password
+
+x-service-dependencies: &service-dependencies
+  database:
+    condition: service_healthy
+  configserver:
+    condition: service_healthy
+
+x-service-healthcheck: &service-healthcheck
+  test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 40s
+
+services:
+  database:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  configserver:
+    build: ./configserver
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_PROFILES_ACTIVE: native
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/auth-service/database"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8081:8080"
+    environment:
+      <<: *service-environment
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/auth_db
+    depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+  user-service:
+    build: ./user-service
+    ports:
+      - "8082:8080"
+    environment:
+      <<: *service-environment
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/user_db
+    depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+  product-service:
+    build: ./product-service
+    ports:
+      - "8083:8080"
+    environment:
+      <<: *service-environment
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/product_db
+    depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "8084:8080"
+    environment:
+      <<: *service-environment
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/cart_db
+    depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+  payment-service:
+    build: ./payment-service
+    ports:
+      - "8085:8080"
+    environment:
+      <<: *service-environment
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/payment_db
+    depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+volumes:
+  postgres-data:

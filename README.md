@@ -66,12 +66,17 @@ Each service has its own 3-layer stack: **Controller (REST) → Service → Repo
 - **API Testing:** Postman
 - **Messaging (Phase 3):** RabbitMQ
 
-## Local Setup (fill in as implemented)
-1. Clone the repo: `git clone <repo-url>`
-2. Start config server: `cd config-server && ./mvnw spring-boot:run`
-3. Start remaining services: `docker-compose up --build`
-4. Import the Postman workspace: `postman/store-workspace.json`
-5. Set active profile via `SPRING_PROFILES_ACTIVE=dev` (or `prod`) in each service's environment
+## Local Setup
+
+From the repository root, start the implemented services and PostgreSQL:
+
+```sh
+docker compose -f parent/docker-compose.yml up --build -d --wait
+```
+
+Config Server uses port 8080; auth, user, product, cart, and payment use ports
+8081–8085 respectively. PostgreSQL uses port 5432. See [the service README](parent/README.md)
+for database initialization, configuration, and local Maven commands.
 
 ## Repo Structure (suggested)
 ```
