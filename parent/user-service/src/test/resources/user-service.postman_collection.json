@@ -1,0 +1,88 @@
+{
+  "info": {
+    "name": "User Service",
+    "description": "CRUD endpoints for CertainlyInStock user-service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082/certainlyinstock/users"
+    },
+    {
+      "key": "userId",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"role\": \"CUSTOMER\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/create",
+          "host": ["{{baseUrl}}"],
+          "path": ["create"]
+        }
+      }
+    },
+    {
+      "name": "Get All Users",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/getAll",
+          "host": ["{{baseUrl}}"],
+          "path": ["getAll"]
+        }
+      }
+    },
+    {
+      "name": "Get User By Id",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/credential/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["credential", "{{userId}}"]
+        }
+      }
+    },
+    {
+      "name": "Update User",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"role\": \"ADMIN\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/updateCredentials/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["updateCredentials", "{{userId}}"]
+        }
+      }
+    },
+    {
+      "name": "Delete User",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/delete/{{userId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["delete", "{{userId}}"]
+        }
+      }
+    }
+  ]
+}

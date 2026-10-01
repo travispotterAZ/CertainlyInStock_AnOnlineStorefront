@@ -60,6 +60,7 @@ services:
       - "8081:8080"
     environment:
       <<: *service-environment
+      SPRING_APPLICATION_NAME: auth-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/auth_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
@@ -70,6 +71,7 @@ services:
       - "8082:8080"
     environment:
       <<: *service-environment
+      SPRING_APPLICATION_NAME: user-service
       SPRING_PROFILES_ACTIVE: database,dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/user_db
     depends_on: *service-dependencies
@@ -81,6 +83,7 @@ services:
       - "8083:8080"
     environment:
       <<: *service-environment
+      SPRING_APPLICATION_NAME: product-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/product_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
@@ -91,6 +94,7 @@ services:
       - "8084:8080"
     environment:
       <<: *service-environment
+      SPRING_APPLICATION_NAME: cart-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/cart_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
@@ -101,6 +105,7 @@ services:
       - "8085:8080"
     environment:
       <<: *service-environment
+      SPRING_APPLICATION_NAME: payment-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/payment_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
