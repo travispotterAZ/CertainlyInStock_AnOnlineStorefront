@@ -1,4 +1,4 @@
-package com.certainlyinstock.user_service;
+package com.certainlyinstock.user_service.Service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

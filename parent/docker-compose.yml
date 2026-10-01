@@ -70,6 +70,7 @@ services:
       - "8082:8080"
     environment:
       <<: *service-environment
+      SPRING_PROFILES_ACTIVE: database,dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/user_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
