@@ -1,10 +1,10 @@
-package com.certainlyinstock.payment_service;
+package com.certainlyinstock.order_service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class PaymentServiceApplicationTests {
+class OrderServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
