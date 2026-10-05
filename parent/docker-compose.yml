@@ -96,6 +96,7 @@ services:
     environment:
       <<: *service-environment
       SPRING_APPLICATION_NAME: cart-service
+      SPRING_PROFILES_ACTIVE: database,dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/cart_db
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
