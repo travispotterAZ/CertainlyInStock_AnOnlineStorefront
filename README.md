@@ -66,17 +66,70 @@ Each service has its own 3-layer stack: **Controller (REST) → Service → Repo
 - **API Testing:** Postman
 - **Messaging (Phase 3):** RabbitMQ
 
+## Prerequisites
+
+Before running the application, make sure the following are installed:
+
+- Docker Desktop
+- Docker Compose
+- Java 21
+- Maven
+
+Docker Desktop must be running before starting the application.
+
 ## Local Setup
 
-From the repository root, start the implemented services and PostgreSQL:
+1. Clone the repository:
 
-```sh
-docker compose -f parent/docker-compose.yml up --build -d --wait
-```
+   ```bash
+   git clone https://github.com/travispotterAZ/CertainlyInStock_AnOnlineStorefront.git
 
-Config Server uses port 8080; auth, user, product, cart, and payment use ports
-8081–8085 respectively. PostgreSQL uses port 5432. See [the service README](parent/README.md)
-for database initialization, configuration, and local Maven commands.
+2. Navigate to the repository root:
+
+   cd CertainlyInStock_AnOnlineStorefront
+
+3. Make sure Docker Desktop is running.
+
+4. Build and start the application:
+
+   docker compose -f parent/docker-compose.yml up --build -d --wait
+
+5. Verify that the containers are running:
+
+   docker compose -f parent/docker-compose.yml ps
+
+6. When finished, stop the containers:
+
+   docker compose -f parent/docker-compose.yml down
+
+## Service Ports
+
+| Service | Port |
+| --- | --- |
+| Config Server | 8080 |
+| Auth Service | 8081 |
+| User Service | 8082 |
+| Product Service | 8083 |
+| Cart Service | 8084 |
+| Payment/Order Service | 8085 |
+| PostgreSQL | 5432 |
+
+## Configuration Profiles
+
+Spring Cloud Config provides centralized configuration for the
+microservices.
+
+Two environment profiles are maintained:
+
+- `dev` - development configuration
+- `prod` - production configuration
+
+For example, the Cart Service configuration can be verified through
+the Config Server:
+
+    curl http://localhost:8080/cart-service/dev
+
+    curl http://localhost:8080/cart-service/prod
 
 ## Repo Structure (suggested)
 ```
