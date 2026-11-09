@@ -158,6 +158,7 @@ services:
       <<: *service-environment
       SPRING_APPLICATION_NAME: auth-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/auth_db
+      USER_SERVICE_URL: http://user-service:8080
     depends_on: *service-dependencies
     healthcheck: *service-healthcheck
 
