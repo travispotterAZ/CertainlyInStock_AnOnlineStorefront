@@ -90,6 +90,41 @@ To require Config Server locally, override `spring.config.import` with
 These are Spring runtime settings, not Maven profiles. Tests run with the
 `database` profile will also require a configured, reachable database.
 
+## User CRUD
+
+User endpoints live in user-service (host port 8082 in Compose), so the base URL is
+`http://localhost:8082/certainlyinstock/users`. 
+
+| Method | Path | Result |
+| --- | --- | --- |
+| POST | `/create` | Create; returns 201 with the user |
+| GET | `/getAll` | List users |
+| GET | `/credential/{id}` | Read one user |
+| PUT | `/updateCredentials/{id}` | Replace its writable fields |
+| DELETE | `/delete/{id}` | Delete; returns 204 |
+
+The controller accepts the User entity directly; no request DTO is used.
+Example POST or PUT body:
+
+```json
+{
+  "email": "jane@example.com",
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "role": "CUSTOMER"
+}
+```
+
+`role` must be a value of the `Role` enum. Responses also contain the generated
+`id` (`Long`), `createdAt`, and `updatedAt` as ISO instants. Creation sets both
+timestamps; updates preserve `createdAt` and refresh `updatedAt`. PUT replaces
+`email`, `firstName`, `lastName`, and `role`; any ID or timestamps in the body are
+ignored, and PUT uses the ID in the URL.
+
+Errors return a JSON body with `timestamp`, `status`, `error`, and `message`.
+Missing user IDs return 404. `email` is unique: creating or updating a user to an
+email that another user already has returns 409.
+
 ## Product CRUD
 
 Product endpoints are always enabled. The base URL in Compose is
