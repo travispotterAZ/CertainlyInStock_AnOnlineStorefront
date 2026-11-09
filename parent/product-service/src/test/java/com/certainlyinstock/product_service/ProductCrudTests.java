@@ -10,10 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -62,7 +65,7 @@ class ProductCrudTests {
         LocalDate originalDate = today.minusDays(10);
         jdbc.update("UPDATE product SET date_added = ?, last_updated = ?",
                 Date.valueOf(originalDate), Date.valueOf(originalDate));
-        mvc.perform(put(location).contentType("application/json").content("""
+        mvc.perform(put(location).with(admin()).contentType("application/json").content("""
                 {"pid":99999,"category":"Games","image":"game.png","price":19.9876,"status":false,
                  "dateAdded":"2000-01-01","lastUpdated":"2000-01-01"}
                 """))
@@ -77,7 +80,7 @@ class ProductCrudTests {
         assertThat(jdbc.queryForObject("SELECT price FROM product", BigDecimal.class))
                 .isEqualByComparingTo("19.9876");
 
-        mvc.perform(delete(location)).andExpect(status().isNoContent());
+        mvc.perform(delete(location).with(admin())).andExpect(status().isNoContent());
         mvc.perform(get(location)).andExpect(status().isNotFound());
         mvc.perform(get("/certainlyinstock/product-service/products")).andExpect(jsonPath("$.length()").value(0));
     }
@@ -85,10 +88,10 @@ class ProductCrudTests {
     @Test
     void missingProductsReturnNotFoundWithoutCreatingRows() throws Exception {
         mvc.perform(get("/certainlyinstock/product-service/products/99999")).andExpect(status().isNotFound());
-        mvc.perform(put("/certainlyinstock/product-service/products/99999").contentType("application/json")
+        mvc.perform(put("/certainlyinstock/product-service/products/99999").with(admin()).contentType("application/json")
                         .content("{\"category\":\"Books\",\"price\":10,\"status\":true}"))
                 .andExpect(status().isNotFound());
-        mvc.perform(delete("/certainlyinstock/product-service/products/99999")).andExpect(status().isNotFound());
+        mvc.perform(delete("/certainlyinstock/product-service/products/99999").with(admin())).andExpect(status().isNotFound());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isZero();
     }
 
@@ -98,7 +101,7 @@ class ProductCrudTests {
         int pid = Integer.parseInt(location.substring(location.lastIndexOf('/') + 1));
         jdbc.update("INSERT INTO inventory (pid, qty, backorder) VALUES (?, ?, ?)", pid, 5, false);
 
-        mvc.perform(delete(location)).andExpect(status().isConflict());
+        mvc.perform(delete(location).with(admin())).andExpect(status().isConflict());
         mvc.perform(get(location)).andExpect(status().isOk());
         assertThat(jdbc.queryForObject("SELECT qty FROM inventory WHERE pid = ?", Integer.class, pid))
                 .isEqualTo(5);
@@ -106,14 +109,18 @@ class ProductCrudTests {
 
     @Test
     void invalidPriceReturnsBadRequest() throws Exception {
-        mvc.perform(post("/certainlyinstock/product-service/products").contentType("application/json")
+        mvc.perform(post("/certainlyinstock/product-service/products").with(admin()).contentType("application/json")
                         .content("{\"price\":\"not-a-number\"}"))
                 .andExpect(status().isBadRequest());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isZero();
     }
 
+    private static RequestPostProcessor admin() {
+        return jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
     private String createProduct() throws Exception {
-        return mvc.perform(post("/certainlyinstock/product-service/products").contentType("application/json").content("""
+        return mvc.perform(post("/certainlyinstock/product-service/products").with(admin()).contentType("application/json").content("""
                 {"pid":99999,"dateAdded":"2000-01-01","lastUpdated":"2000-01-01",
                  "category":"Books","image":"https://example.com/book.png",
                  "price":1234567890.123456789,"status":true}
