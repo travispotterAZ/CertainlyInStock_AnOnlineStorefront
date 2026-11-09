@@ -24,6 +24,8 @@ executable JAR in a Java 21 runtime image. No local JAR build is required.
 | eureka2 | 8762 |
 | eureka3 | 8763 |
 | database (PostgreSQL) | 5432 |
+| keycloak (login, tokens, admin console) | 8180 |
+| mailpit (dev email inbox: web UI / SMTP) | 8025 / 1025 |
 
 All Java containers listen on port 8080 internally. Config Server uses its bundled
 `config-repo` with the `native` profile. It waits for PostgreSQL. The three Eureka
@@ -134,6 +136,110 @@ hostnames and are intended for running inside Compose.
 The gateway needs Config Server and a running registry to route requests. Local
 service instances must advertise addresses reachable from the gateway; run the
 gateway and its backends together on the host or together in Compose.
+
+## Authentication (Keycloak)
+
+Keycloak handles login, issues JWT access tokens and stores passwords; no service sees
+or stores a password. Every application service checks the bearer token on each request
+(signature, expiry and issuer) and then applies role rules. Tokens carry Keycloak realm
+roles; each service maps them to Spring roles (`ADMIN` becomes `ROLE_ADMIN`).
+
+Keycloak imports the `certainlyinstock` realm from `keycloak/realm-export.json` when its
+container starts. Its data lives inside the container, so removing the container resets
+the realm to that file. The admin console is at `http://localhost:8180` (`admin` / `admin`).
+
+Test users (development only):
+
+| User | Password | Roles |
+| --- | --- | --- |
+| `admin@certainlyinstock.local` | `admin1234` | ADMIN, CUSTOMER |
+| `customer@certainlyinstock.local` | `customer1234` | CUSTOMER |
+
+### Get a token and call a service
+
+The `certainlyinstock-api` client accepts a username and password directly. It exists for
+Postman and curl only; a browser frontend should use the `certainlyinstock-web` client
+(authorization code with PKCE) instead.
+
+```sh
+TOKEN=$(curl -s http://localhost:8180/realms/certainlyinstock/protocol/openid-connect/token   -d grant_type=password -d client_id=certainlyinstock-api   -d username=customer@certainlyinstock.local -d password=customer1234   | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/auth/me
+```
+
+Access tokens last 5 minutes. Use the `refresh_token` from the same response with
+`grant_type=refresh_token` for a new one (valid for 30 minutes of inactivity), and post
+it to `/realms/certainlyinstock/protocol/openid-connect/logout` to log out.
+
+### auth-service endpoints
+
+Base URL `http://localhost:8081/auth`.
+
+| Method | Path | Token | Result |
+| --- | --- | --- | --- |
+| POST | `/register` | none | Creates the Keycloak user (role CUSTOMER) and the user-service profile; 201 |
+| GET | `/me` | any | The caller's Keycloak id, email, names and roles |
+| POST | `/password-reset` | none | Always 202 with no body; emails a reset link if the account exists |
+
+Register body: `{"email", "password", "firstName", "lastName"}` (password at least 8
+characters). A duplicate email returns 409 and invalid input returns 400. Registration
+spans two systems: if creating the profile fails, auth-service deletes the Keycloak user
+again so the two do not drift apart. The profile's `keycloakId` equals the user's token
+`sub` claim.
+
+Password reset body: `{"email"}`. The response is identical whether or not the account
+exists, so the endpoint cannot reveal who is registered. One email per address per 60
+seconds. In development the email goes to Mailpit: open `http://localhost:8025`, follow
+the link, and set a new password on Keycloak's page. Links expire after 30 minutes and
+work once. Keycloak's own "Forgot password?" link on its login page does the same.
+
+### Who can call what
+
+| Service | Rule |
+| --- | --- |
+| auth-service | `/register` and `/password-reset` are public; everything else needs a token |
+| user-service | `create`: ADMIN or SERVICE (auth-service's account); all other endpoints: ADMIN |
+| product-service | `GET` is public; create, update and delete: ADMIN |
+| cart-service | CUSTOMER or ADMIN |
+| payment / order service | CUSTOMER or ADMIN; list all, update and delete payments: ADMIN |
+
+`/actuator/health` is public on every service. A missing or invalid token returns 401; a
+valid token without the required role returns 403. Owner checks (a customer may only
+see their own cart or payments) are not implemented yet.
+
+### Postman
+
+`../postman/CertainlyInStock-Auth.postman_collection.json` covers tokens, registration,
+`/me`, password reset and the 401/403/200 rules for every service, with test assertions.
+Run the folders in order (folder 1 stores the tokens), or from the command line:
+
+```sh
+npx newman run ../postman/CertainlyInStock-Auth.postman_collection.json
+```
+
+### Configuration
+
+Keycloak settings are served by Config Server (`config-repo/application.properties` and
+`config-repo/auth-service.properties`). Tokens always name `http://localhost:8180` as
+their issuer, while containers download Keycloak's signing keys from
+`http://keycloak:8080`; `docker-compose.yml` sets `KEYCLOAK_JWK_SET_URI`,
+`KEYCLOAK_BASE_URL` and `USER_SERVICE_URL` for the containers. These placeholders are
+written as `\${...}` in `config-repo` so each service, not Config Server, resolves them.
+`config-repo` is packaged into the Config Server image: rebuild it
+(`docker compose build configserver`) after changing those files.
+
+The `auth-service` client secret defaults to the development value in the realm file;
+set `KEYCLOAK_CLIENT_SECRET` (and change it in Keycloak) outside development.
+
+### Troubleshooting
+
+- **A correct password returns "Invalid user credentials".** Keycloak locks an account
+  for 60 seconds after failed logins less than one second apart. Wait a minute, or clear
+  it in the admin console (Users, select the user, then disable the temporary lock).
+- **Every request returns 401 with a valid-looking token.** Check the token's `iss` claim is
+  `http://localhost:8180/realms/certainlyinstock`, and that the service can reach
+  `KEYCLOAK_JWK_SET_URI`.
+- **Tests do not need Keycloak.** They use mocked tokens and a placeholder key URL.
 
 ## User CRUD
 
