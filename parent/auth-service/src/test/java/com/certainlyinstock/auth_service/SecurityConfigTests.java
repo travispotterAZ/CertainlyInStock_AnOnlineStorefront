@@ -36,8 +36,12 @@ class SecurityConfigTests {
 
     @Test
     void validTokenPassesSecurity() throws Exception {
-        // No controller exists yet, so a request that gets past security ends in 404, not 401/403.
-        mvc.perform(get("/auth/me").with(jwt())).andExpect(status().isNotFound());
+        mvc.perform(get("/auth/me").with(jwt())).andExpect(status().isOk());
+    }
+
+    @Test
+    void unknownPathsAreProtectedToo() throws Exception {
+        mvc.perform(get("/auth/does-not-exist")).andExpect(status().isUnauthorized());
     }
 
     @Test
