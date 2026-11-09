@@ -3,6 +3,7 @@ package com.certainlyinstock.auth_service.client;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,9 @@ import com.certainlyinstock.auth_service.exception.RegistrationFailedException;
 public class KeycloakAdminClient {
 
     private static final Logger log = LoggerFactory.getLogger(KeycloakAdminClient.class);
+    /** How long an emailed reset link stays valid. */
+    static final int RESET_LINK_LIFESPAN_SECONDS = 1800;
+
     private static final ParameterizedTypeReference<Map<String, Object>> MAP = new ParameterizedTypeReference<>() { };
 
     private final RestClient rest;
@@ -100,6 +104,48 @@ public class KeycloakAdminClient {
                     });
         } catch (RestClientException e) {
             throw new RegistrationFailedException("Could not reach Keycloak to create the user", e);
+        }
+    }
+
+    /** Looks a user up by exact email; empty if there is no such user. */
+    public Optional<String> findUserIdByEmail(String email) {
+        String token = serviceToken();
+        try {
+            List<Map<String, Object>> users = rest.get()
+                    // email goes in as a URI variable so characters like '+' are percent-encoded
+                    .uri(uri -> uri.path("/admin/realms/{realm}/users")
+                            .queryParam("email", "{email}")
+                            .queryParam("exact", true)
+                            .build(props.realm(), email))
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() { });
+            if (users == null || users.isEmpty() || !(users.get(0).get("id") instanceof String id)) {
+                return Optional.empty();
+            }
+            return Optional.of(id);
+        } catch (RestClientException e) {
+            throw new RegistrationFailedException("Could not look up the user in Keycloak", e);
+        }
+    }
+
+    /**
+     * Asks Keycloak to email the user a single-use "set a new password" link. Keycloak sends the
+     * mail (SMTP is configured in the realm), builds the link and enforces its lifespan.
+     */
+    public void sendPasswordResetEmail(String keycloakId) {
+        String token = serviceToken();
+        try {
+            rest.put()
+                    .uri("/admin/realms/{realm}/users/{id}/execute-actions-email?lifespan={lifespan}",
+                            props.realm(), keycloakId, RESET_LINK_LIFESPAN_SECONDS)
+                    .headers(h -> h.setBearerAuth(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(List.of("UPDATE_PASSWORD"))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            throw new RegistrationFailedException("Keycloak could not send the password reset email", e);
         }
     }
 

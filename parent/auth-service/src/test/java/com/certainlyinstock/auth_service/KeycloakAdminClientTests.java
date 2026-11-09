@@ -114,4 +114,48 @@ class KeycloakAdminClientTests {
         client.deleteUser("kc-123"); // must swallow the error so the original failure is reported
         server.verify();
     }
+
+    @Test
+    void findsAUserByExactEmailAndEncodesPlusSigns() {
+        server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_JSON, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(USERS_URL + "?email=jane%2Btest%40example.com&exact=true"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer svc-token"))
+                .andRespond(withSuccess("[{\"id\":\"kc-123\",\"email\":\"jane+test@example.com\"}]", MediaType.APPLICATION_JSON));
+
+        assertThat(client.findUserIdByEmail("jane+test@example.com")).contains("kc-123");
+        server.verify();
+    }
+
+    @Test
+    void unknownEmailGivesEmptyResult() {
+        server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_JSON, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.startsWith(USERS_URL)))
+                .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+
+        assertThat(client.findUserIdByEmail("nobody@example.com")).isEmpty();
+    }
+
+    @Test
+    void sendsTheUpdatePasswordActionWithALinkLifespan() {
+        server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_JSON, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(USERS_URL + "/kc-123/execute-actions-email?lifespan=1800"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(header("Authorization", "Bearer svc-token"))
+                .andExpect(content().json("[\"UPDATE_PASSWORD\"]"))
+                .andRespond(withStatus(HttpStatus.NO_CONTENT));
+
+        client.sendPasswordResetEmail("kc-123");
+        server.verify();
+    }
+
+    @Test
+    void emailSendFailureSurfacesAsRegistrationFailed() {
+        server.expect(requestTo(TOKEN_URL)).andRespond(withSuccess(TOKEN_JSON, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.startsWith(USERS_URL)))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> client.sendPasswordResetEmail("kc-123"))
+                .isInstanceOf(RegistrationFailedException.class);
+    }
 }

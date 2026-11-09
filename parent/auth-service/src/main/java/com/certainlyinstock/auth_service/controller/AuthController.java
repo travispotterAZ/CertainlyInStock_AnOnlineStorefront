@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.certainlyinstock.auth_service.dto.MeResponse;
+import com.certainlyinstock.auth_service.dto.PasswordResetRequest;
 import com.certainlyinstock.auth_service.dto.RegisterRequest;
 import com.certainlyinstock.auth_service.dto.RegisterResponse;
+import com.certainlyinstock.auth_service.service.PasswordResetService;
 import com.certainlyinstock.auth_service.service.RegistrationService;
 
 import jakarta.validation.Valid;
@@ -26,9 +28,11 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final RegistrationService registrationService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(RegistrationService registrationService) {
+    public AuthController(RegistrationService registrationService, PasswordResetService passwordResetService) {
         this.registrationService = registrationService;
+        this.passwordResetService = passwordResetService;
     }
 
     /**
@@ -52,5 +56,16 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return registrationService.register(request);
+    }
+
+    /**
+     * Public endpoint. Always answers 202 with no body, whether or not the address has an
+     * account, so it cannot be used to discover who is registered. If the account exists,
+     * Keycloak emails a single-use link; the work happens in the background.
+     */
+    @PostMapping("/password-reset")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        passwordResetService.requestReset(request.email());
     }
 }
