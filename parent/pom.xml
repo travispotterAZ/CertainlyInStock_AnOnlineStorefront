@@ -43,6 +43,7 @@
 		<module>product-service</module>
 		<module>cart-service</module>
 		<module>order-service</module>
+		<module>api-gateway</module>
   	</modules>
 	
 	<dependencies>
