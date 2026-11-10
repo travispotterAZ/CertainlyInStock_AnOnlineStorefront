@@ -38,6 +38,7 @@
 
 	<modules>
     	<module>configserver</module>
+		<module>eurekaserver</module>
     	<module>auth-service</module>
 		<module>user-service</module>
 		<module>product-service</module>

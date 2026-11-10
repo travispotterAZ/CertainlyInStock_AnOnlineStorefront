@@ -27,7 +27,8 @@ import com.sun.net.httpserver.HttpServer;
 
 /**
  * Loads the real route definitions from the config server's api-gateway.properties,
- * points every route at a stub backend and checks which path the backend receives.
+ * resolves each lb:// service through a stub discovery registry and checks which
+ * path the backend receives.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
@@ -73,8 +74,7 @@ class GatewayRoutingTest {
 		receivedAuthHeaders.clear();
 	}
 
-	// Spring replaces a list as a whole when it is defined in two property sources, so
-	// the full route set is taken from the real file and only the URIs are rewritten.
+	// Use the real routes, including lb:// URIs, with an isolated discovery registry.
 	@DynamicPropertySource
 	static void routes(DynamicPropertyRegistry registry) throws IOException {
 		Properties routes = new Properties();
@@ -83,9 +83,12 @@ class GatewayRoutingTest {
 		}
 		String stubUri = "http://127.0.0.1:" + backend.getAddress().getPort();
 		routes.stringPropertyNames().forEach(key -> {
-			String value = key.endsWith(".uri") ? stubUri : routes.getProperty(key);
+			String value = routes.getProperty(key);
 			registry.add(key, () -> value);
 		});
+		for (String service : List.of("cart-service", "user-service", "product-service", "order-service")) {
+			registry.add("spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> stubUri);
+		}
 	}
 
 	private void assertForwarded(String requestPath, String expectedBackendPath) {

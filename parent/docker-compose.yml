@@ -1,14 +1,28 @@
+x-eureka-client-environment: &eureka-client-environment
+  EUREKA_SERVICE_URL: http://eureka1:8080/eureka/,http://eureka2:8080/eureka/,http://eureka3:8080/eureka/
+
 x-service-environment: &service-environment
+  <<: *eureka-client-environment
   SERVER_PORT: "8080"
   SPRING_PROFILES_ACTIVE: database
   SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
+  CONFIG_SERVER_URL: http://configserver:8080
   SPRING_DATASOURCE_USERNAME: postgres
   SPRING_DATASOURCE_PASSWORD: password
 
-x-service-dependencies: &service-dependencies
-  database:
-    condition: service_healthy
+x-discovery-dependencies: &discovery-dependencies
   configserver:
+    condition: service_healthy
+  eureka1:
+    condition: service_healthy
+  eureka2:
+    condition: service_healthy
+  eureka3:
+    condition: service_healthy
+
+x-service-dependencies: &service-dependencies
+  <<: *discovery-dependencies
+  database:
     condition: service_healthy
 
 x-service-healthcheck: &service-healthcheck
@@ -17,6 +31,18 @@ x-service-healthcheck: &service-healthcheck
   timeout: 5s
   retries: 12
   start_period: 40s
+
+x-eureka-peer: &eureka-peer
+  build: ./eurekaserver
+  depends_on:
+    configserver:
+      condition: service_healthy
+  healthcheck: *service-healthcheck
+
+x-eureka-environment: &eureka-environment
+  SERVER_PORT: "8080"
+  SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
+  CONFIG_SERVER_URL: http://configserver:8080
 
 services:
   database:
@@ -43,6 +69,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      <<: *eureka-client-environment
       SERVER_PORT: "8080"
       SPRING_PROFILES_ACTIVE: native
     depends_on:
@@ -54,6 +81,33 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  eureka1:
+    <<: *eureka-peer
+    hostname: eureka1
+    ports:
+      - "8761:8080"
+    environment:
+      <<: *eureka-environment
+      SPRING_PROFILES_ACTIVE: peer1
+
+  eureka2:
+    <<: *eureka-peer
+    hostname: eureka2
+    ports:
+      - "8762:8080"
+    environment:
+      <<: *eureka-environment
+      SPRING_PROFILES_ACTIVE: peer2
+
+  eureka3:
+    <<: *eureka-peer
+    hostname: eureka3
+    ports:
+      - "8763:8080"
+    environment:
+      <<: *eureka-environment
+      SPRING_PROFILES_ACTIVE: peer3
 
   auth-service:
     build: ./auth-service
@@ -117,13 +171,13 @@ services:
     ports:
       - "8086:8080"
     environment:
+      <<: *eureka-client-environment
       SERVER_PORT: "8080"
       SPRING_APPLICATION_NAME: api-gateway
       SPRING_PROFILES_ACTIVE: docker
       SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
-    depends_on:
-      configserver:
-        condition: service_healthy
+      CONFIG_SERVER_URL: http://configserver:8080
+    depends_on: *discovery-dependencies
     healthcheck: *service-healthcheck
 
 volumes:

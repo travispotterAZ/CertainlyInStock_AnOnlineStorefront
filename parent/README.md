@@ -5,8 +5,7 @@
 From this directory, build and start the complete stack:
 
 ```sh
-docker-compose build
-docker-compose up
+docker compose up --build -d
 ```
 
 Each Dockerfile compiles its service with Maven and Java 21, then runs the
@@ -19,25 +18,52 @@ executable JAR in a Java 21 runtime image. No local JAR build is required.
 | user-service | 8082 |
 | product-service | 8083 |
 | cart-service | 8084 |
-| payment-service | 8085 |
+| order-service (payments API) | 8085 |
+| api-gateway | 8086 |
+| eureka1 | 8761 |
+| eureka2 | 8762 |
+| eureka3 | 8763 |
 | database (PostgreSQL) | 5432 |
 
 All Java containers listen on port 8080 internally. Config Server uses its bundled
-`config-repo` with the `native` profile. It waits for PostgreSQL; each application
-service waits for both PostgreSQL and Config Server health checks before starting.
-Compose enables the `database` profile and requires Config Server for the five
-application services.
+`config-repo` with the `native` profile. It waits for PostgreSQL. The three Eureka
+peers then load `eureka-server.properties` and their respective `peer1`, `peer2`, or
+`peer3` configuration from Config Server. Each peer registers with and replicates
+to the other two; they start concurrently without depending on each other's health.
+The application services wait for PostgreSQL, Config Server, and all three peers.
+The gateway waits for Config Server and the peers. Compose enables the `database`
+profile and requires Config Server for the five application services.
 
-`init.sql` creates `auth_db`, `user_db`, `product_db`, `cart_db`, and `payment_db`.
+All services, including Config Server and the gateway, register with Eureka and
+fetch the registry. Their `eureka.client.serviceUrl.defaultZone` includes
+`http://eureka1:8080/eureka/`, `http://eureka2:8080/eureka/`, and
+`http://eureka3:8080/eureka/`, allowing clients to fail over between peers.
+Config Server starts independently of discovery so the peers can obtain their
+configuration. Shared client settings live in `config-repo/application.properties`;
+Config Server's own client settings live in its local `application.properties`.
+
+The gateway resolves `lb://cart-service`, `lb://user-service`,
+`lb://product-service`, and `lb://order-service` through Eureka. Requests retain
+their existing paths. Registry propagation and client caching can take roughly
+90 seconds after startup before a newly registered service is routable.
+
+View the dashboards at `http://localhost:8761`, `http://localhost:8762`, and
+`http://localhost:8763`. Inspect any peer's registry with:
+
+```sh
+curl -H 'Accept: application/json' http://localhost:8761/eureka/apps
+```
+
+`init.sql` creates `auth_db`, `user_db`, `product_db`, `cart_db`, and `order_db`.
 The local database username is `postgres` and password is `password`.
-`init.sql` also applies `database/product.sql` to `product_db`, creating the
-`product` and `inventory` tables. Table definitions live outside the services;
+Apply `database/product.sql` to `product_db` once with the commands below to create
+the `product` and `inventory` tables. Table definitions live outside the services;
 Product JPA mappings validate the schema instead of creating or altering it.
 PostgreSQL data persists in the `postgres-data` volume. Initialization SQL runs
 only when that volume is empty; changing the SQL does not update existing data.
 
-For an existing volume whose `product_db` does not yet contain these tables,
-apply the schema once from this directory, before starting the updated product service:
+For a fresh database or an existing volume whose `product_db` does not yet contain
+these tables, apply the schema once from this directory before starting the stack:
 
 ```sh
 docker compose up -d database
@@ -61,13 +87,13 @@ Build all modules from this directory with:
 mvn install
 ```
 
-Auth, user, cart, and payment services can start without a database or Config
+Auth, user, cart, and order services can start without a database or Config
 Server. Product service always requires a database:
 
 - Config Server is optional. The services try `http://localhost:8888` and continue
   if it is unavailable. Set `CONFIG_SERVER_URL` to use another address. Connection
   warnings are expected when the server is not running.
-- For auth, user, cart, and payment, database auto-configuration is disabled unless
+- For auth, user, cart, and order, database auto-configuration is disabled unless
   the Spring profile `database` is active.
 - Product service connects to `jdbc:postgresql://localhost:5432/product_db` by default,
   using the Compose development credentials (`postgres` / `password`). Override
@@ -89,6 +115,25 @@ To require Config Server locally, override `spring.config.import` with
 
 These are Spring runtime settings, not Maven profiles. Tests run with the
 `database` profile will also require a configured, reachable database.
+
+Eureka requires Config Server. For a local registry, start Config Server on its
+default port 8888, then run Eureka on 8761:
+
+```sh
+java -jar eurekaserver/target/eurekaserver-0.0.1-SNAPSHOT.jar
+```
+
+For a single local registry, pass
+`--eureka.client.register-with-eureka=false --eureka.client.fetch-registry=false`
+to Eureka. For three local peers, run three copies with ports 8761, 8762, and 8763
+and set each peer's `--eureka.client.serviceUrl.defaultZone` to the other two
+localhost URLs. Local clients default to all three localhost ports; set
+`EUREKA_SERVICE_URL` to override the list. The Compose peer profiles use Docker
+hostnames and are intended for running inside Compose.
+
+The gateway needs Config Server and a running registry to route requests. Local
+service instances must advertise addresses reachable from the gateway; run the
+gateway and its backends together on the host or together in Compose.
 
 ## User CRUD
 
