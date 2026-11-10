@@ -54,27 +54,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-  
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "8086:8080"
-    environment:
-      SERVER_PORT: "8080"
-      SPRING_APPLICATION_NAME: api-gateway
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
-    depends_on:
-      configserver:
-        condition: service_healthy
-      cart-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      product-service:
-        condition: service_healthy
-      order-service:
-        condition: service_healthy
+
   auth-service:
     build: ./auth-service
     ports:
@@ -130,6 +110,20 @@ services:
       SPRING_APPLICATION_NAME: order-service
       SPRING_DATASOURCE_URL: jdbc:postgresql://database:5432/order_db
     depends_on: *service-dependencies
+    healthcheck: *service-healthcheck
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8086:8080"
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_APPLICATION_NAME: api-gateway
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
+    depends_on:
+      configserver:
+        condition: service_healthy
     healthcheck: *service-healthcheck
 
 volumes:
