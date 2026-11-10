@@ -69,8 +69,12 @@ these tables, apply the schema once from this directory before starting the stac
 
 ```sh
 docker compose up -d database
-docker compose exec -T database psql -U postgres -d product_db -v ON_ERROR_STOP=1 < database/product.sql
+docker compose exec database psql -U postgres -d product_db -v ON_ERROR_STOP=1 -f /docker-entrypoint-initdb.d/database/product.sql
 ```
+
+The script is read from the `./database` folder that Compose mounts into the
+container, so the same command works in PowerShell, bash and cmd (a `< file` redirect
+does not work in PowerShell).
 
 This script creates new tables; it does not migrate existing tables. Keep future
 schema changes in separate SQL migrations instead of resetting the data volume.
@@ -194,14 +198,19 @@ The `certainlyinstock-api` client accepts a username and password directly. It e
 Postman and curl only; a browser frontend should use the `certainlyinstock-web` client
 (authorization code with PKCE) instead.
 
-```sh
-TOKEN=$(curl -s http://localhost:8180/realms/certainlyinstock/protocol/openid-connect/token   -d grant_type=password -d client_id=certainlyinstock-api   -d username=customer@certainlyinstock.local -d password=customer1234   | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+This one command works in bash and PowerShell (it needs Python 3 on the PATH). It
+gets a token for the customer user and calls `GET /auth/me` through the gateway:
 
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8086/auth/me
+```sh
+python -c "import json,urllib.request as u,urllib.parse as p;t=json.load(u.urlopen('http://localhost:8180/realms/certainlyinstock/protocol/openid-connect/token',p.urlencode({'grant_type':'password','client_id':'certainlyinstock-api','username':'customer@certainlyinstock.local','password':'customer1234'}).encode()))['access_token'];print(json.load(u.urlopen(u.Request('http://localhost:8086/auth/me',headers={'Authorization':'Bearer '+t}))))"
 ```
 
-Access tokens last 5 minutes. Use the `refresh_token` from the same response with
-`grant_type=refresh_token` for a new one (valid for 30 minutes of inactivity), and post
+The token is not kept after the command. To reuse one for several calls, use Postman (it
+stores the tokens), or request it from `/realms/certainlyinstock/protocol/openid-connect/token`
+yourself and send it as an `Authorization: Bearer <token>` header.
+
+Access tokens last 5 minutes. The token endpoint's response also contains a `refresh_token`:
+send it with `grant_type=refresh_token` for a new access token (valid for 30 minutes of inactivity), and post
 it to `/realms/certainlyinstock/protocol/openid-connect/logout` to log out.
 
 ### auth-service endpoints
@@ -252,6 +261,12 @@ the command line:
 ```sh
 npx newman run ../postman/CertainlyInStock-Auth.postman_collection.json
 ```
+
+`../postman/CertainlyInStock-Products.postman_collection.json` holds seed and demo requests for
+product-service (three creates, a list, an update and a delete). It logs in as the dev admin
+itself before each request that needs a fresh token, so it works on its own. Run it in
+order: the creates remember the new product ids that the update and delete then use. Each
+run adds three products and deletes one.
 
 ### Configuration
 

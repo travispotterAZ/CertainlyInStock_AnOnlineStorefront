@@ -90,9 +90,14 @@ class GatewayRoutingTest {
 			String value = routes.getProperty(key);
 			registry.add(key, () -> value);
 		});
-		for (String service : List.of("cart-service", "user-service", "product-service", "order-service")) {
-			registry.add("spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> stubUri);
-		}
+		// Register the stub as the only instance of every service a route names, so new
+		// routes are covered without editing this list.
+		routes.stringPropertyNames().stream()
+				.filter(key -> key.endsWith(".uri") && routes.getProperty(key).startsWith("lb://"))
+				.map(key -> routes.getProperty(key).substring("lb://".length()))
+				.distinct()
+				.forEach(service -> registry.add(
+						"spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> stubUri));
 	}
 
 	private void assertForwarded(String requestPath, String expectedBackendPath) {

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The "docker" profile file repeats every route in full (Spring replaces a list as a
  * whole when it is defined in two places), so the two files can drift apart. This keeps
- * them identical except for the route URIs.
+ * their routes identical, and checks every route resolves its service through Eureka.
  */
 class RouteFilesInSyncTest {
 
@@ -39,22 +39,17 @@ class RouteFilesInSyncTest {
 		Map<String, String> base = routeProperties("api-gateway.properties");
 		Map<String, String> docker = routeProperties("api-gateway-docker.properties");
 
-		assertThat(docker.keySet()).isEqualTo(base.keySet());
-		base.forEach((key, value) -> {
-			if (!key.endsWith(".uri")) {
-				assertThat(docker.get(key)).as(key).isEqualTo(value);
-			}
-		});
+		assertThat(docker).isEqualTo(base);
 	}
 
 	@Test
-	void dockerRoutesTargetTheComposeServiceOnPort8080() throws IOException {
-		Map<String, String> docker = routeProperties("api-gateway-docker.properties");
+	void everyRouteResolvesItsServiceThroughEureka() throws IOException {
+		Map<String, String> base = routeProperties("api-gateway.properties");
 
-		docker.forEach((key, value) -> {
+		base.forEach((key, value) -> {
 			if (key.endsWith(".id")) {
 				String uriKey = key.substring(0, key.length() - ".id".length()) + ".uri";
-				assertThat(docker.get(uriKey)).as(uriKey).isEqualTo("http://" + value + ":8080");
+				assertThat(base.get(uriKey)).as(uriKey).isEqualTo("lb://" + value);
 			}
 		});
 	}

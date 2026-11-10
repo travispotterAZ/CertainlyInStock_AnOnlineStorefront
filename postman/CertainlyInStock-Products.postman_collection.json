@@ -1,0 +1,274 @@
+{
+  "info": {
+    "_postman_id": "9ab488d9-e6fe-4a24-9db4-849907b27896",
+    "name": "CertainlyInStock - Products",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "48924181",
+    "_collection_link": "https://go.postman.co/collection/48924181-9ab488d9-e6fe-4a24-9db4-849907b27896?source=collection_link",
+    "description": "Seed and demo requests for product-service, sent through the API gateway (gatewayUrl, port 8086).\n\nCreate, update and delete need an ADMIN token. A collection-level pre-request script logs in as the dev admin user at Keycloak (keycloakUrl, port 8180) whenever it has no token or the 5-minute token is about to expire, so every request works on its own. Dev credentials only (see keycloak/realm-export.json). Start the stack first (`docker compose up` in parent/).\n\nRun the requests in order. The three creates add products and remember their ids (shoesProductId, topsProductId, bottomsProductId); the delete and update then use those ids, so it works on a database with any existing data. Each run adds three products and deletes one of them."
+  },
+  "item": [
+    {
+      "name": "Create product (shoes)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"category\": \"shoes\",\n    \"image\": \"nullURL\",\n    \"price\": \"150.25\",\n    \"status\": \"True\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{productUrl}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Created (201)', () => pm.response.to.have.status(201));",
+              "const product = pm.response.json();",
+              "pm.collectionVariables.set('shoesProductId', String(product.pid));",
+              "pm.test('Response has a product id', () => pm.expect(product.pid).to.be.a('number'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create product (tops)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"category\": \"tops\",\n    \"image\": \"nullURL\",\n    \"price\": \"22.00\",\n    \"status\": \"True\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{productUrl}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Created (201)', () => pm.response.to.have.status(201));",
+              "const product = pm.response.json();",
+              "pm.collectionVariables.set('topsProductId', String(product.pid));",
+              "pm.test('Response has a product id', () => pm.expect(product.pid).to.be.a('number'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create product (bottoms)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"category\": \"bottoms\",\n    \"image\": \"nullURL\",\n    \"price\": \"40.00\",\n    \"status\": \"False\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{productUrl}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Created (201)', () => pm.response.to.have.status(201));",
+              "const product = pm.response.json();",
+              "pm.collectionVariables.set('bottomsProductId', String(product.pid));",
+              "pm.test('Response has a product id', () => pm.expect(product.pid).to.be.a('number'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List all products",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{productUrl}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.expect(pm.response.code === 200).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete the tops product",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{productUrl}}/{{topsProductId}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', () => pm.expect(pm.response.code === 204).to.be.true);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update the bottoms product",
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"category\": \"tops\",\n    \"image\": \"nullURL\",\n    \"price\": \"28.00\",\n    \"status\": \"False\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{productUrl}}/{{bottomsProductId}}"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', () => pm.expect(pm.response.code === 200).to.be.true);"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{adminToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Keep a valid admin token in {{adminToken}}. Keycloak access tokens last 5 minutes, and a",
+          "// resource server rejects an expired token with 401 even on public endpoints.",
+          "const expiresAt = Number(pm.collectionVariables.get('adminTokenExpiresAt') || 0);",
+          "const haveToken = !!pm.collectionVariables.get('adminToken');",
+          "if (!haveToken || Date.now() > expiresAt - 30000) {",
+          "  pm.sendRequest({",
+          "    url: pm.variables.replaceIn('{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token'),",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/x-www-form-urlencoded' },",
+          "    body: {",
+          "      mode: 'urlencoded',",
+          "      urlencoded: [",
+          "        { key: 'grant_type', value: 'password' },",
+          "        { key: 'client_id', value: pm.variables.replaceIn('{{apiClientId}}') },",
+          "        { key: 'username', value: pm.variables.replaceIn('{{adminUsername}}') },",
+          "        { key: 'password', value: pm.variables.replaceIn('{{adminPassword}}') }",
+          "      ]",
+          "    }",
+          "  }, (err, res) => {",
+          "    if (err || res.code !== 200) {",
+          "      throw new Error('Could not get an admin token from Keycloak: ' + (err || res.code + ' ' + res.text()));",
+          "    }",
+          "    const body = res.json();",
+          "    pm.collectionVariables.set('adminToken', body.access_token);",
+          "    pm.collectionVariables.set('adminTokenExpiresAt', String(Date.now() + body.expires_in * 1000));",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "gatewayUrl",
+      "value": "http://localhost:8086"
+    },
+    {
+      "key": "productUrl",
+      "value": "{{gatewayUrl}}/certainlyinstock/product-service/products"
+    },
+    {
+      "key": "keycloakUrl",
+      "value": "http://localhost:8180"
+    },
+    {
+      "key": "realm",
+      "value": "certainlyinstock"
+    },
+    {
+      "key": "apiClientId",
+      "value": "certainlyinstock-api"
+    },
+    {
+      "key": "adminUsername",
+      "value": "admin@certainlyinstock.local"
+    },
+    {
+      "key": "adminPassword",
+      "value": "admin1234"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "adminTokenExpiresAt",
+      "value": ""
+    },
+    {
+      "key": "shoesProductId",
+      "value": ""
+    },
+    {
+      "key": "topsProductId",
+      "value": ""
+    },
+    {
+      "key": "bottomsProductId",
+      "value": ""
+    }
+  ]
+}
