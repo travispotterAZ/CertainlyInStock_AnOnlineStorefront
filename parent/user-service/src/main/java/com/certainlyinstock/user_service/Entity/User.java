@@ -33,6 +33,13 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    /**
+     * Id of the matching Keycloak user (the JWT "sub" claim). Nullable so profiles created
+     * before Keycloak was introduced keep working; unique so one login maps to one profile.
+     */
+    @Column(unique = true)
+    private String keycloakId;
+
     @Column(nullable = false)
     private String firstName;
 

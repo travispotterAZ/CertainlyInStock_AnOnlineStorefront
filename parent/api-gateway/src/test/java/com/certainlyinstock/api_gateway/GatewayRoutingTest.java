@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
@@ -39,6 +40,7 @@ class GatewayRoutingTest {
 
 	private static final List<String> receivedPaths = new CopyOnWriteArrayList<>();
 	private static final List<String> receivedAuthHeaders = new CopyOnWriteArrayList<>();
+	private static final List<String> receivedMethods = new CopyOnWriteArrayList<>();
 	private static final HttpServer backend = startBackend();
 
 	@Autowired
@@ -53,6 +55,7 @@ class GatewayRoutingTest {
 		}
 		server.createContext("/", exchange -> {
 			receivedPaths.add(exchange.getRequestURI().getRawPath());
+			receivedMethods.add(exchange.getRequestMethod());
 			receivedAuthHeaders.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
 			byte[] body = exchange.getRequestURI().getRawPath().getBytes(StandardCharsets.UTF_8);
 			exchange.sendResponseHeaders(200, body.length);
@@ -72,6 +75,7 @@ class GatewayRoutingTest {
 	void clear() {
 		receivedPaths.clear();
 		receivedAuthHeaders.clear();
+		receivedMethods.clear();
 	}
 
 	// Use the real routes, including lb:// URIs, with an isolated discovery registry.
@@ -86,9 +90,14 @@ class GatewayRoutingTest {
 			String value = routes.getProperty(key);
 			registry.add(key, () -> value);
 		});
-		for (String service : List.of("cart-service", "user-service", "product-service", "order-service")) {
-			registry.add("spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> stubUri);
-		}
+		// Register the stub as the only instance of every service a route names, so new
+		// routes are covered without editing this list.
+		routes.stringPropertyNames().stream()
+				.filter(key -> key.endsWith(".uri") && routes.getProperty(key).startsWith("lb://"))
+				.map(key -> routes.getProperty(key).substring("lb://".length()))
+				.distinct()
+				.forEach(service -> registry.add(
+						"spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> stubUri));
 	}
 
 	private void assertForwarded(String requestPath, String expectedBackendPath) {
@@ -122,10 +131,41 @@ class GatewayRoutingTest {
 	}
 
 	@Test
+	void authRegisterIsForwardedWithoutAToken() {
+		client.post().uri("/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{\"email\":\"new@example.com\"}")
+				.exchange().expectStatus().isOk()
+				.expectBody(String.class).isEqualTo("/auth/register");
+		assertThat(receivedPaths).containsExactly("/auth/register");
+		assertThat(receivedMethods).containsExactly("POST");
+		assertThat(receivedAuthHeaders).containsExactly("null");
+	}
+
+	@Test
+	void authPasswordResetIsForwarded() {
+		client.post().uri("/auth/password-reset").contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{\"email\":\"new@example.com\"}")
+				.exchange().expectStatus().isOk();
+		assertThat(receivedPaths).containsExactly("/auth/password-reset");
+		assertThat(receivedMethods).containsExactly("POST");
+	}
+
+	@Test
+	void authMeIsForwardedWithTheTokenUnchanged() {
+		client.get().uri("/auth/me").header("Authorization", "Bearer abc.def.ghi")
+				.exchange().expectStatus().isOk()
+				.expectBody(String.class).isEqualTo("/auth/me");
+		assertThat(receivedPaths).containsExactly("/auth/me");
+		assertThat(receivedMethods).containsExactly("GET");
+		assertThat(receivedAuthHeaders).containsExactly("Bearer abc.def.ghi");
+	}
+
+	@Test
 	void unknownPathsAreNotForwarded() {
 		client.get().uri("/nope").exchange().expectStatus().isNotFound();
 		client.get().uri("/cart/users/1/cart").exchange().expectStatus().isNotFound();
 		client.get().uri("/users/1").exchange().expectStatus().isNotFound();
+		client.get().uri("/authx").exchange().expectStatus().isNotFound();
 		assertThat(receivedPaths).isEmpty();
 	}
 

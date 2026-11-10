@@ -9,6 +9,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,6 +40,7 @@ public class ProductController {
         return service.findById(pid);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Product> create(@RequestBody Product request) {
         Product product = service.create(request);
@@ -46,11 +48,13 @@ public class ProductController {
                 .body(product);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{pid}")
     public Product update(@PathVariable int pid, @RequestBody Product request) {
         return service.update(pid, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{pid}")
     public ResponseEntity<Void> delete(@PathVariable int pid) {
         service.delete(pid);
