@@ -19,7 +19,7 @@ executable JAR in a Java 21 runtime image. No local JAR build is required.
 | product-service | 8083 |
 | cart-service | 8084 |
 | order-service (payments API) | 8085 |
-| api-gateway | 8086 |
+| api-gateway (single entry point) | 8086 |
 | eureka1 | 8761 |
 | eureka2 | 8762 |
 | eureka3 | 8763 |
@@ -76,7 +76,7 @@ This script creates new tables; it does not migrate existing tables. Keep future
 schema changes in separate SQL migrations instead of resetting the data volume.
 
 Check Config Server at `http://localhost:8080/auth-service/database` and application
-health at `http://localhost:8081/actuator/health` (or ports 8082–8085).
+health at `http://localhost:8086/actuator/health` (gateway) or on each service's own port (8081–8085).
 
 Use `docker compose logs` for logs and `docker compose down` to stop the stack
 while retaining database data.
@@ -115,6 +115,11 @@ The datasource settings can also come from Config Server.
 To require Config Server locally, override `spring.config.import` with
 `configserver:http://localhost:8888` (without `optional:`).
 
+The API gateway (port 8086 when run locally) is the exception: its routes are served by
+Config Server, so start Config Server (port 8888) first. Without it the gateway starts with
+no routes and answers 404 to everything. It also finds the services through Eureka (see
+below), so they must be registered there too.
+
 These are Spring runtime settings, not Maven profiles. Tests run with the
 `database` profile will also require a configured, reachable database.
 
@@ -136,6 +141,34 @@ hostnames and are intended for running inside Compose.
 The gateway needs Config Server and a running registry to route requests. Local
 service instances must advertise addresses reachable from the gateway; run the
 gateway and its backends together on the host or together in Compose.
+
+## API gateway
+
+The API gateway on `http://localhost:8086` is the single entry point for clients. It only
+decides where a request goes, by path, and forwards it unchanged, including the
+`Authorization` header. It does not validate tokens or request contents: every service
+still checks the bearer token and the request itself, and the services remain reachable
+on their own ports (8081–8085) for debugging.
+
+| Gateway path | Service |
+| --- | --- |
+| `/auth/**` | auth-service |
+| `/certainlyinstock/users/**` | user-service |
+| `/certainlyinstock/product-service/products/**` | product-service |
+| `/users/{id}/cart/**` | cart-service |
+| `/api/payments/**` | order-service (payments) |
+
+Paths are not rewritten, so a gateway URL is the same as the service's own URL with a
+different host and port. Tokens are not issued by the gateway: get them from Keycloak at
+`http://localhost:8180` (see below).
+
+Routes live in Config Server: `config-repo/api-gateway.properties`, repeated in
+`config-repo/api-gateway-docker.properties` for the `docker` profile used in Compose. Each
+route targets `lb://<service-name>`, so the gateway looks the service up in Eureka and
+load-balances across its registered instances. Spring replaces a list as a whole when it
+is defined in two files, so the docker file repeats every route: change both files
+together; a unit test fails if they drift apart. `/actuator/gateway/routes` lists the
+loaded routes in Compose (development only).
 
 ## Authentication (Keycloak)
 
@@ -164,7 +197,7 @@ Postman and curl only; a browser frontend should use the `certainlyinstock-web` 
 ```sh
 TOKEN=$(curl -s http://localhost:8180/realms/certainlyinstock/protocol/openid-connect/token   -d grant_type=password -d client_id=certainlyinstock-api   -d username=customer@certainlyinstock.local -d password=customer1234   | python -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
 
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/auth/me
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8086/auth/me
 ```
 
 Access tokens last 5 minutes. Use the `refresh_token` from the same response with
@@ -173,7 +206,8 @@ it to `/realms/certainlyinstock/protocol/openid-connect/logout` to log out.
 
 ### auth-service endpoints
 
-Base URL `http://localhost:8081/auth`.
+Base URL `http://localhost:8086/auth` (through the gateway; auth-service itself is on
+`http://localhost:8081/auth`).
 
 | Method | Path | Token | Result |
 | --- | --- | --- | --- |
@@ -211,7 +245,9 @@ see their own cart or payments) are not implemented yet.
 
 `../postman/CertainlyInStock-Auth.postman_collection.json` covers tokens, registration,
 `/me`, password reset and the 401/403/200 rules for every service, with test assertions.
-Run the folders in order (folder 1 stores the tokens), or from the command line:
+Requests go through the gateway (`gatewayUrl`, `http://localhost:8086`); tokens come straight
+from Keycloak (`keycloakUrl`). Run the folders in order (folder 1 stores the tokens), or from
+the command line:
 
 ```sh
 npx newman run ../postman/CertainlyInStock-Auth.postman_collection.json
@@ -244,7 +280,8 @@ set `KEYCLOAK_CLIENT_SECRET` (and change it in Keycloak) outside development.
 ## User CRUD
 
 User endpoints live in user-service (host port 8082 in Compose), so the base URL is
-`http://localhost:8082/certainlyinstock/users`. 
+`http://localhost:8086/certainlyinstock/users` through the gateway, or
+`http://localhost:8082/certainlyinstock/users` directly. 
 
 | Method | Path | Result |
 | --- | --- | --- |
@@ -279,7 +316,8 @@ email that another user already has returns 409.
 ## Product CRUD
 
 Product endpoints are always enabled. The base URL in Compose is
-`http://localhost:8083/certainlyinstock/product-service`. Business endpoints use
+`http://localhost:8086/certainlyinstock/product-service` through the gateway, or
+`http://localhost:8083/certainlyinstock/product-service` directly. Business endpoints use
 `/certainlyinstock/<service-name>/...`; health checks remain at `/actuator/health`.
 
 | Method | Path | Result |

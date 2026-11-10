@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "CertainlyInStock - Auth (Keycloak)",
-    "description": "Authentication, registration, password reset and role checks across all services.\n\nStart the stack (`docker compose up` in parent/), then run the folders in order: folder 1 stores the tokens the others use. Test users and passwords are DEV ONLY (see keycloak/realm-export.json). Reset emails go to Mailpit: http://localhost:8025.",
+    "description": "Authentication, registration, password reset and role checks across all services.\n\nStart the stack (`docker compose up` in parent/). Requests go through the API gateway (`gatewayUrl`, port 8086); tokens come straight from Keycloak (`keycloakUrl`). Then run the folders in order: folder 1 stores the tokens the others use. Test users and passwords are DEV ONLY (see keycloak/realm-export.json). Reset emails go to Mailpit: http://localhost:8025.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1010,24 +1010,28 @@
       "value": "certainlyinstock-api"
     },
     {
+      "key": "gatewayUrl",
+      "value": "http://localhost:8086"
+    },
+    {
       "key": "authUrl",
-      "value": "http://localhost:8081/auth"
+      "value": "{{gatewayUrl}}/auth"
     },
     {
       "key": "userUrl",
-      "value": "http://localhost:8082/certainlyinstock/users"
+      "value": "{{gatewayUrl}}/certainlyinstock/users"
     },
     {
       "key": "productUrl",
-      "value": "http://localhost:8083/certainlyinstock/product-service/products"
+      "value": "{{gatewayUrl}}/certainlyinstock/product-service/products"
     },
     {
       "key": "cartUrl",
-      "value": "http://localhost:8084"
+      "value": "{{gatewayUrl}}"
     },
     {
       "key": "orderUrl",
-      "value": "http://localhost:8085/api/payments"
+      "value": "{{gatewayUrl}}/api/payments"
     },
     {
       "key": "adminUsername",

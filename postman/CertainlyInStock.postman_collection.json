@@ -22,12 +22,12 @@
           }
         },
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
@@ -52,12 +52,12 @@
           }
         },
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
@@ -82,12 +82,12 @@
           }
         },
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
@@ -103,12 +103,12 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
@@ -124,12 +124,12 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products/2",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products/2",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
@@ -155,12 +155,12 @@
           }
         },
         "url": {
-          "raw": "http://localhost:8083/certainlyinstock/product-service/products/3",
+          "raw": "http://localhost:8086/certainlyinstock/product-service/products/3",
           "protocol": "http",
           "host": [
             "localhost"
           ],
-          "port": "8083",
+          "port": "8086",
           "path": [
             "certainlyinstock",
             "product-service",
