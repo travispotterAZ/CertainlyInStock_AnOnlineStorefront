@@ -250,6 +250,24 @@ work once. Keycloak's own "Forgot password?" link on its login page does the sam
 valid token without the required role returns 403. Owner checks (a customer may only
 see their own cart or payments) are not implemented yet.
 
+### Token propagation between services
+
+A token can travel between services in three ways:
+
+| Call | Token | Example |
+| --- | --- | --- |
+| Client → gateway → service | The user's token, forwarded unchanged | Every gateway route |
+| Service → service for a user | The user's token, copied by `BearerTokenPropagationInterceptor` | order-service → cart-service |
+| Service → service, no user | auth-service's own service-account token | auth-service → user-service on registration |
+
+`GET /api/payments/checkout-preview/{userId}` (order-service) reads the user's cart from
+cart-service and returns `userId`, `itemCount` and `items`. cart-service requires a
+CUSTOMER or ADMIN token, so this only works because order-service forwards the caller's
+token; cart-service is found through Eureka. Try it through the gateway with a customer
+token (`http://localhost:8086/api/payments/checkout-preview/1`); order-service logs
+`Propagating bearer token of user 'customer@certainlyinstock.local' to GET .../users/1/cart`
+(`docker compose logs order-service`).
+
 ### Postman
 
 `../postman/CertainlyInStock-Auth.postman_collection.json` covers tokens, registration,

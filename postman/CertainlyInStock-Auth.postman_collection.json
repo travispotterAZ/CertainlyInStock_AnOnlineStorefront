@@ -992,6 +992,64 @@
               }
             }
           ]
+        },
+        {
+          "name": "Checkout preview as customer -> 200 (token propagated to cart-service)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{orderUrl}}/checkout-preview/{{cartUserId}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "order-service reads the customer's cart from cart-service, forwarding the customer's own bearer token (BearerTokenPropagationInterceptor). cart-service requires a CUSTOMER or ADMIN token, so a 200 here means the token reached it. order-service logs: Propagating bearer token of user 'customer@certainlyinstock.local' to GET .../users/{id}/cart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Preview built from the cart\", () => {",
+                  "  pm.expect(body.userId).to.eql(Number(pm.collectionVariables.get(\"cartUserId\")));",
+                  "  pm.expect(body.itemCount).to.be.a(\"number\");",
+                  "  pm.expect(body.items).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Checkout preview without a token -> 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{orderUrl}}/checkout-preview/{{cartUserId}}",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
