@@ -62,6 +62,7 @@ services:
     environment:
       SERVER_PORT: "8080"
       SPRING_APPLICATION_NAME: api-gateway
+      SPRING_PROFILES_ACTIVE: docker
       SPRING_CONFIG_IMPORT: configserver:http://configserver:8080
     depends_on:
       configserver:
